@@ -25,6 +25,7 @@ db.exec(`
     date TEXT NOT NULL,
     prayer TEXT NOT NULL CHECK (prayer IN ('subuh','dzuhur','ashar','maghrib','isya')),
     completed INTEGER NOT NULL DEFAULT 1,
+    is_qodo INTEGER NOT NULL DEFAULT 0,
     logged_at TEXT,
     PRIMARY KEY (user_id, date, prayer)
   );
@@ -34,6 +35,9 @@ db.exec(`
 const cols = db.prepare("PRAGMA table_info(prayer_logs)").all() as { name: string }[]
 if (!cols.some((col) => col.name === 'logged_at')) {
   db.exec('ALTER TABLE prayer_logs ADD COLUMN logged_at TEXT')
+}
+if (!cols.some((col) => col.name === 'is_qodo')) {
+  db.exec('ALTER TABLE prayer_logs ADD COLUMN is_qodo INTEGER NOT NULL DEFAULT 0')
 }
 
 export type User = { id: number; email: string }

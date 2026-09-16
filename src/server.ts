@@ -47,10 +47,10 @@ app.get('/', (c) => {
   const date = today(timezone)
   const week = weekDates(date)
   const placeholders = week.map(() => '?').join(',')
-  const rows = db.prepare(`SELECT prayer, date FROM prayer_logs WHERE user_id = ? AND date IN (${placeholders}) AND completed = 1`).all(user.id, ...week) as { prayer: string; date: string }[]
-  const completed: Record<string, Set<string>> = {}
+  const rows = db.prepare(`SELECT prayer, date, is_qodo FROM prayer_logs WHERE user_id = ? AND date IN (${placeholders}) AND completed = 1`).all(user.id, ...week) as { prayer: string; date: string; is_qodo: number }[]
+  const completed: Record<string, Map<string, boolean>> = {}
   for (const row of rows) {
-    (completed[row.prayer] ??= new Set()).add(row.date)
+    (completed[row.prayer] ??= new Map()).set(row.date, Boolean(row.is_qodo))
   }
   return c.html(layout('Hari ini', homePage(date, week, completed, user.email), user, 'home'))
 })
@@ -74,22 +74,25 @@ app.post('/habits/prayer', async (c) => {
   const body = await c.req.parseBody()
   const prayer = String(body.prayer ?? '')
   const date = String(body.date ?? '')
+  const qodo = String(body.qodo ?? '') === 'true'
   const timezone = getCookie(c, 'timezone') ?? 'UTC'
   const todayDate = today(timezone)
   const valid = prayerKeys.includes(prayer as (typeof prayerKeys)[number]) && /^\d{4}-\d{2}-\d{2}$/.test(date) && date <= todayDate
   if (!valid) return c.body(null, 400)
-  // Optional custom timestamp (from the long-press dialog), stored as ISO local time
-  let loggedAt: string | null = null
-  const datetime = String(body.datetime ?? '')
-  if (datetime) {
-    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(datetime) || datetime.slice(0, 10) > todayDate) return c.body(null, 400)
-    loggedAt = `${datetime}:00`
+  const existing = db.prepare('SELECT is_qodo FROM prayer_logs WHERE user_id = ? AND date = ? AND prayer = ?').get(user.id, date, prayer) as { is_qodo: number } | undefined
+  const existingIsQodo = Boolean(existing?.is_qodo)
+  let checked = true
+  let isQodo = qodo
+  if (!existing) {
+    db.prepare('INSERT INTO prayer_logs (user_id, date, prayer, completed, is_qodo) VALUES (?, ?, ?, 1, ?)').run(user.id, date, prayer, Number(qodo))
+  } else if (existingIsQodo === qodo) {
+    db.prepare('DELETE FROM prayer_logs WHERE user_id = ? AND date = ? AND prayer = ?').run(user.id, date, prayer)
+    checked = false
+    isQodo = false
+  } else {
+    db.prepare('UPDATE prayer_logs SET is_qodo = ? WHERE user_id = ? AND date = ? AND prayer = ?').run(Number(qodo), user.id, date, prayer)
   }
-  const existing = db.prepare('SELECT completed FROM prayer_logs WHERE user_id = ? AND date = ? AND prayer = ?').get(user.id, date, prayer) as { completed: number } | undefined
-  if (existing) db.prepare('DELETE FROM prayer_logs WHERE user_id = ? AND date = ? AND prayer = ?').run(user.id, date, prayer)
-  else db.prepare('INSERT INTO prayer_logs (user_id, date, prayer, completed, logged_at) VALUES (?, ?, ?, 1, ?)').run(user.id, date, prayer, loggedAt)
-  const checked = !existing
-  return c.html(renderPrayerCircle(prayer, date, dayLabelFor(date), checked, date === todayDate, false))
+  return c.html(renderPrayerCircle(prayer, date, dayLabelFor(date), checked, isQodo, date === todayDate, false))
 })
 
 app.get('/health', (c) => c.json({ ok: true }))
