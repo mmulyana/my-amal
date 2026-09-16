@@ -78,9 +78,16 @@ app.post('/habits/prayer', async (c) => {
   const todayDate = today(timezone)
   const valid = prayerKeys.includes(prayer as (typeof prayerKeys)[number]) && /^\d{4}-\d{2}-\d{2}$/.test(date) && date <= todayDate
   if (!valid) return c.body(null, 400)
+  // Optional custom timestamp (from the long-press dialog), stored as ISO local time
+  let loggedAt: string | null = null
+  const datetime = String(body.datetime ?? '')
+  if (datetime) {
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(datetime) || datetime.slice(0, 10) > todayDate) return c.body(null, 400)
+    loggedAt = `${datetime}:00`
+  }
   const existing = db.prepare('SELECT completed FROM prayer_logs WHERE user_id = ? AND date = ? AND prayer = ?').get(user.id, date, prayer) as { completed: number } | undefined
   if (existing) db.prepare('DELETE FROM prayer_logs WHERE user_id = ? AND date = ? AND prayer = ?').run(user.id, date, prayer)
-  else db.prepare('INSERT INTO prayer_logs (user_id, date, prayer, completed) VALUES (?, ?, ?, 1)').run(user.id, date, prayer)
+  else db.prepare('INSERT INTO prayer_logs (user_id, date, prayer, completed, logged_at) VALUES (?, ?, ?, 1, ?)').run(user.id, date, prayer, loggedAt)
   const checked = !existing
   return c.html(renderPrayerCircle(prayer, date, dayLabelFor(date), checked, date === todayDate, false))
 })
