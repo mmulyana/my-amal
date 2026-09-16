@@ -24,7 +24,25 @@ export function renderPrayerCircle(
   const attrs = disabled
     ? "disabled"
     : `hx-post="/habits/prayer" hx-vals='{"prayer":"${prayer}","date":"${date}"}' hx-swap="outerHTML"`;
-  return `<button type="button" class="flex flex-col items-center gap-1.5 ${disabled ? "cursor-default" : "cursor-pointer"}" ${attrs}><span class="${circleClasses}">✓</span><span class="text-[10px] font-medium uppercase tracking-wide text-neutral-500">${dayLabel}</span></button>`;
+  return `<button type="button" data-prayer="${prayer}" data-date="${date}" class="prayer-circle flex flex-col items-center gap-1.5 ${disabled ? "cursor-default" : "cursor-pointer"}" ${attrs}><span class="${circleClasses}">✓</span><span class="text-[10px] font-medium uppercase tracking-wide text-neutral-500">${dayLabel}</span></button>`;
+}
+
+// Modal dialog for long-press: pick a custom date & time for a prayer log
+export function prayerLogDialog() {
+  return `<dialog id="prayer-log-dialog" class="rounded-2xl border border-neutral-800 bg-neutral-900 p-5 text-neutral-100 backdrop:bg-black/60">
+  <form id="prayer-log-form" class="space-y-4">
+    <h3 class="font-medium text-neutral-100">Catat sholat</h3>
+    <p id="prayer-log-label" class="text-sm text-neutral-500"></p>
+    <label class="block text-sm font-medium text-neutral-300">Tanggal &amp; waktu
+      <input id="prayer-log-datetime" name="datetime" type="datetime-local" required
+        class="mt-1 w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-neutral-100 [color-scheme:dark]">
+    </label>
+    <div class="flex justify-end gap-2 pt-1">
+      <button type="button" id="prayer-log-cancel" class="rounded-lg px-4 py-2 text-sm text-neutral-400 hover:text-neutral-200">Batal</button>
+      <button type="submit" class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-neutral-950 hover:bg-amber-400">Simpan</button>
+    </div>
+  </form>
+</dialog>`;
 }
 
 export function homePage(
@@ -75,5 +93,6 @@ export function homePage(
         </div>
       </div>
     <div class="mt-6 space-y-3">${cards}</div>
+    ${prayerLogDialog()}
   </div>`;
 }

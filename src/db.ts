@@ -25,9 +25,16 @@ db.exec(`
     date TEXT NOT NULL,
     prayer TEXT NOT NULL CHECK (prayer IN ('subuh','dzuhur','ashar','maghrib','isya')),
     completed INTEGER NOT NULL DEFAULT 1,
+    logged_at TEXT,
     PRIMARY KEY (user_id, date, prayer)
   );
 `)
+
+// Migration for databases created before the logged_at column existed
+const cols = db.prepare("PRAGMA table_info(prayer_logs)").all() as { name: string }[]
+if (!cols.some((col) => col.name === 'logged_at')) {
+  db.exec('ALTER TABLE prayer_logs ADD COLUMN logged_at TEXT')
+}
 
 export type User = { id: number; email: string }
 
